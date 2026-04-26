@@ -12,14 +12,12 @@ body {
   background: #f5f5f5;
   padding: 10px;
 }
-
 h2 {
   background: #222;
   color: white;
   padding: 10px;
   border-radius: 8px;
 }
-
 input, select, button {
   width: 100%;
   padding: 12px;
@@ -28,28 +26,21 @@ input, select, button {
   border: 1px solid #ccc;
   font-size: 16px;
 }
-
-button {
-  border: none;
-  font-weight: bold;
-}
-
+button { border: none; font-weight: bold; }
 .btn-verde { background: #28a745; color: white; }
 .btn-azul { background: #007bff; color: white; }
 .btn-vermelho { background: #dc3545; color: white; }
-
 .card {
   background: white;
   padding: 10px;
   margin: 10px 0;
   border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-li {
-  margin: 5px 0;
 }
 </style>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 </head>
 <body>
@@ -57,7 +48,7 @@ li {
 <div class="card">
 <h2>Cadastro de Produtos</h2>
 <input id="nome" placeholder="Produto">
-<input id="precoCompra" placeholder="Preço inicial de compra">
+<input id="precoCompra" placeholder="Preço de compra">
 <input id="preco" placeholder="Preço de venda">
 <input id="estoque" placeholder="Estoque inicial">
 <select id="unidade">
@@ -106,234 +97,167 @@ li {
 </div>
 
 <script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCw8xX29KgU3cqa_TNskv3ZHK0pjcyjdsQ",
+  authDomain: "frutaria-app.firebaseapp.com",
+  projectId: "frutaria-app",
+  storageBucket: "frutaria-app.firebasestorage.app",
+  messagingSenderId: "67866127101",
+  appId: "1:67866127101:web:68bf8d793ea799fd892c94"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 let produtos = [];
 let historico = [];
 
-function parseNumero(valor) {
-  if (!valor) return 0;
-  return parseFloat(valor.toString().replace(",", "."));
+function parseNumero(v){return parseFloat((v||"0").toString().replace(",", "."))||0;}
+function moeda(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});}
+
+function salvarDados(){
+  db.collection("sistema").doc("dados").set({
+    produtos: produtos,
+    historico: historico
+  });
 }
 
-function formatarMoeda(valor) {
-  return Number(valor || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+function carregarDados(){
+  db.collection("sistema").doc("dados").onSnapshot(doc=>{
+    if(doc.exists){
+      let d = doc.data();
+      produtos = d.produtos || [];
+      historico = d.historico || [];
+      atualizarLista();
+      atualizarSelects();
+      atualizarHistorico();
+      calcularRelatorios();
+    }
+  });
 }
 
-function addProduto() {
+function addProduto(){
   let nome = document.getElementById("nome").value.trim().toLowerCase();
-  let precoCompra = parseNumero(document.getElementById("precoCompra").value);
+  let precoCompra = parseNumero(precoCompra = document.getElementById("precoCompra").value);
   let preco = parseNumero(document.getElementById("preco").value);
   let estoque = parseNumero(document.getElementById("estoque").value);
   let unidade = document.getElementById("unidade").value;
 
-  if (!nome || preco <= 0) {
-    alert("Preencha corretamente!");
-    return;
-  }
+  if(!nome || preco<=0) return alert("Preencha corretamente");
 
-  produtos.push({ nome, precoCompra, preco, estoque, unidade });
+  produtos.push({nome,precoCompra,preco,estoque,unidade});
+  salvarDados();
+}
+
+function atualizarLista(){
+  let l=document.getElementById("lista"); l.innerHTML="";
+  produtos.forEach((p,i)=>{
+    l.innerHTML+=`
+<li>
+${p.nome} | ${moeda(p.preco)} | Estoque: ${p.estoque}
+<button onclick="removerProduto(${i})">❌</button>
+</li>`;
+  });
+}
+
+function atualizarSelects(){
+  let v=document.getElementById("produtoVenda");
+  let e=document.getElementById("produtoEntrada");
+  v.innerHTML=""; e.innerHTML="";
+  produtos.forEach(p=>{
+    v.innerHTML+=`<option>${p.nome}</option>`;
+    e.innerHTML+=`<option>${p.nome}</option>`;
+  });
+}
+
+function vender(){
+  let nome=document.getElementById("produtoVenda").value;
+  let qtd=parseNumero(document.getElementById("quantidade").value);
+  let p=produtos.find(x=>x.nome===nome);
+  if(!p||qtd<=0||p.estoque<qtd) return alert("Erro");
+  p.estoque-=qtd;
+  let total=qtd*p.preco;
+  let lucro=qtd*(p.preco-p.precoCompra);
+  historico.push({data:new Date(),nome,quantidade:qtd,unidade:p.unidade,total,lucro});
+  salvarDados();
+}
+
+function entradaEstoque(){
+  let nome=document.getElementById("produtoEntrada").value;
+  let qtd=parseNumero(document.getElementById("qtdEntrada").value);
+  let precoNovo=parseNumero(document.getElementById("precoEntrada").value);
+  let p=produtos.find(x=>x.nome===nome);
+  if(!p||qtd<=0||precoNovo<=0) return alert("Erro");
+
+  let totalAntigo=p.precoCompra*p.estoque;
+  let totalNovo=precoNovo*qtd;
+  let novoEstoque=p.estoque+qtd;
+
+  p.precoCompra=(totalAntigo+totalNovo)/novoEstoque;
+  p.estoque=novoEstoque;
 
   salvarDados();
-  atualizarLista();
-  atualizarSelects();
 }
 
-function atualizarLista() {
-  let lista = document.getElementById("lista");
-  lista.innerHTML = "";
-
-  produtos.forEach((p, i) => {
-    lista.innerHTML += `
-      <li>
-        ${p.nome} | Custo: ${formatarMoeda(p.precoCompra)} | Venda: ${formatarMoeda(p.preco)} | Estoque: ${p.estoque} ${p.unidade}
-        <button onclick="editarPreco(${i})">✏️</button>
-        <button onclick="removerProduto(${i})">❌</button>
-      </li>
-    `;
+function atualizarHistorico(){
+  let l=document.getElementById("historico"); l.innerHTML="";
+  historico.forEach((h,i)=>{
+    l.innerHTML+=`
+<li>
+${new Date(h.data).toLocaleString()} | ${h.nome} | ${moeda(h.total)}
+<button onclick="removerVenda(${i})">❌</button>
+</li>`;
   });
 }
 
-function atualizarSelects() {
-  let v = document.getElementById("produtoVenda");
-  let e = document.getElementById("produtoEntrada");
-
-  v.innerHTML = "";
-  e.innerHTML = "";
-
-  produtos.forEach(p => {
-    v.innerHTML += `<option value="${p.nome}">${p.nome}</option>`;
-    e.innerHTML += `<option value="${p.nome}">${p.nome}</option>`;
-  });
+function removerVenda(i){
+  let v=historico[i];
+  let p=produtos.find(x=>x.nome===v.nome);
+  if(p) p.estoque+=v.quantidade;
+  historico.splice(i,1);
+  salvarDados();
 }
 
-function editarPreco(i) {
-  let novo = prompt("Novo preço de venda:");
-  let valor = parseNumero(novo);
+function limparHistorico(){
+  historico=[];
+  salvarDados();
+}
 
-  if (!isNaN(valor) && valor > 0) {
-    produtos[i].preco = valor;
+function resetarSistema(){
+  if(confirm("Apagar tudo?")){
+    produtos=[]; historico=[];
     salvarDados();
-    atualizarLista();
   }
 }
 
-function vender() {
-  let nome = document.getElementById("produtoVenda").value;
-  let qtd = parseNumero(document.getElementById("quantidade").value);
+function removerProduto(i){
+  produtos.splice(i,1);
+  salvarDados();
+}
 
-  let p = produtos.find(x => x.nome === nome);
+function calcularRelatorios(){
+  let hoje=new Date();
+  let d=0,s=0,m=0,l=0;
 
-  if (!p || qtd <= 0 || p.estoque < qtd) {
-    alert("Erro na venda");
-    return;
-  }
-
-  p.estoque -= qtd;
-
-  let total = qtd * p.preco;
-  let lucro = qtd * (p.preco - p.precoCompra);
-
-  historico.push({
-    data: new Date().toISOString(),
-    nome,
-    quantidade: qtd,
-    unidade: p.unidade,
-    total,
-    lucro
+  historico.forEach(v=>{
+    let data=new Date(v.data);
+    l+=v.lucro;
+    if(data.toDateString()===hoje.toDateString()) d+=v.total;
+    if((hoje-data)/(1000*60*60*24)<=7) s+=v.total;
+    if(data.getMonth()===hoje.getMonth()) m+=v.total;
   });
 
-  salvarDados();
-  atualizarLista();
-  atualizarHistorico();
-  calcularRelatorios();
-}
-
-function removerVenda(index) {
-  let venda = historico[index];
-  let p = produtos.find(x => x.nome === venda.nome);
-
-  if (p) {
-    p.estoque += venda.quantidade;
-  }
-
-  historico.splice(index, 1);
-
-  salvarDados();
-  atualizarLista();
-  atualizarHistorico();
-  calcularRelatorios();
-}
-
-function entradaEstoque() {
-  let nome = document.getElementById("produtoEntrada").value;
-  let qtd = parseNumero(document.getElementById("qtdEntrada").value);
-  let precoNovo = parseNumero(document.getElementById("precoEntrada").value);
-
-  let p = produtos.find(x => x.nome === nome);
-
-  if (!p || qtd <= 0 || precoNovo <= 0) {
-    alert("Erro na entrada");
-    return;
-  }
-
-  let totalAntigo = p.precoCompra * p.estoque;
-  let totalNovo = precoNovo * qtd;
-  let novoEstoque = p.estoque + qtd;
-
-  p.precoCompra = (totalAntigo + totalNovo) / novoEstoque;
-  p.estoque = novoEstoque;
-
-  salvarDados();
-  atualizarLista();
-}
-
-function atualizarHistorico() {
-  let lista = document.getElementById("historico");
-  lista.innerHTML = "";
-
-  historico.forEach((h, i) => {
-    lista.innerHTML += `
-      <li>
-        ${new Date(h.data).toLocaleString()} | ${h.nome} | ${h.quantidade} ${h.unidade}
-        | ${formatarMoeda(h.total)} | Lucro: ${formatarMoeda(h.lucro)}
-        <button onclick="removerVenda(${i})">❌</button>
-      </li>
-    `;
-  });
-}
-
-function calcularRelatorios() {
-  let hoje = new Date();
-
-  let totalDia = 0;
-  let totalSemana = 0;
-  let totalMes = 0;
-  let lucroTotal = 0;
-
-  historico.forEach(v => {
-    let d = new Date(v.data);
-
-    lucroTotal += v.lucro;
-
-    if (d.toDateString() === hoje.toDateString()) totalDia += v.total;
-
-    let diff = (hoje - d) / (1000 * 60 * 60 * 24);
-    if (diff <= 7) totalSemana += v.total;
-
-    if (d.getMonth() === hoje.getMonth()) totalMes += v.total;
-  });
-
-  document.getElementById("totalDia").innerText = "Hoje: " + formatarMoeda(totalDia);
-  document.getElementById("totalSemana").innerText = "Semana: " + formatarMoeda(totalSemana);
-  document.getElementById("totalMes").innerText = "Mês: " + formatarMoeda(totalMes);
-  document.getElementById("lucroTotal").innerText = "Lucro: " + formatarMoeda(lucroTotal);
-}
-
-function limparHistorico() {
-  historico = [];
-  salvarDados();
-  atualizarHistorico();
-  calcularRelatorios();
-}
-
-function resetarSistema() {
-  if (confirm("Vai apagar tudo!")) {
-    produtos = [];
-    historico = [];
-    salvarDados();
-    atualizarLista();
-    atualizarHistorico();
-    atualizarSelects();
-    calcularRelatorios();
-  }
-}
-
-function removerProduto(i) {
-  produtos.splice(i, 1);
-  salvarDados();
-  atualizarLista();
-  atualizarSelects();
-}
-
-function salvarDados() {
-  localStorage.setItem("produtos", JSON.stringify(produtos));
-  localStorage.setItem("historico", JSON.stringify(historico));
-}
-
-function carregarDados() {
-  produtos = JSON.parse(localStorage.getItem("produtos")) || [];
-  historico = JSON.parse(localStorage.getItem("historico")) || [];
-
-  atualizarLista();
-  atualizarSelects();
-  atualizarHistorico();
-  calcularRelatorios();
+  document.getElementById("totalDia").innerText="Hoje: "+moeda(d);
+  document.getElementById("totalSemana").innerText="Semana: "+moeda(s);
+  document.getElementById("totalMes").innerText="Mês: "+moeda(m);
+  document.getElementById("lucroTotal").innerText="Lucro: "+moeda(l);
 }
 
 carregarDados();
 </script>
 
 <script>
-if ("serviceWorker" in navigator) {
+if("serviceWorker" in navigator){
   navigator.serviceWorker.register("sw.js");
 }
 </script>
