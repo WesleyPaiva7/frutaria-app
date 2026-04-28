@@ -23,8 +23,6 @@ input, select, button {
   padding: 12px;
   margin: 5px 0;
   border-radius: 8px;
-  border: 1px solid #ccc;
-  font-size: 16px;
 }
 button { border: none; font-weight: bold; }
 .btn-verde { background: #28a745; color: white; }
@@ -38,7 +36,6 @@ button { border: none; font-weight: bold; }
 }
 </style>
 
-<!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
@@ -112,13 +109,21 @@ const db = firebase.firestore();
 let produtos = [];
 let historico = [];
 
-function parseNumero(v){return parseFloat((v||"0").toString().replace(",", "."))||0;}
-function moeda(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});}
+function parseNumero(v){
+  return parseFloat((v || "0").toString().replace(",", ".")) || 0;
+}
+
+function moeda(v){
+  return Number(v || 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  });
+}
 
 function salvarDados(){
   db.collection("sistema").doc("dados").set({
-    produtos: produtos,
-    historico: historico
+    produtos,
+    historico
   });
 }
 
@@ -143,89 +148,125 @@ function addProduto(){
   let estoque = parseNumero(document.getElementById("estoque").value);
   let unidade = document.getElementById("unidade").value;
 
-  if(!nome || preco<=0) return alert("Preencha corretamente");
+  if(!nome || preco <= 0){
+    alert("Preencha corretamente!");
+    return;
+  }
 
-  produtos.push({nome,precoCompra,preco,estoque,unidade});
+  produtos.push({nome, precoCompra, preco, estoque, unidade});
   salvarDados();
 }
 
 function atualizarLista(){
-  let l=document.getElementById("lista"); l.innerHTML="";
+  let l = document.getElementById("lista");
+  l.innerHTML = "";
+
   produtos.forEach((p,i)=>{
-    l.innerHTML+=`
-<li>
-${p.nome} | ${moeda(p.preco)} | Estoque: ${p.estoque}
-<button onclick="removerProduto(${i})">❌</button>
-</li>`;
+    l.innerHTML += `
+      <li>
+        ${p.nome} | Venda: ${moeda(p.preco)} | Custo: ${moeda(p.precoCompra)} | Estoque: ${p.estoque} ${p.unidade}
+        <button onclick="removerProduto(${i})">❌</button>
+      </li>
+    `;
   });
 }
 
 function atualizarSelects(){
-  let v=document.getElementById("produtoVenda");
-  let e=document.getElementById("produtoEntrada");
-  v.innerHTML=""; e.innerHTML="";
+  let v = document.getElementById("produtoVenda");
+  let e = document.getElementById("produtoEntrada");
+  v.innerHTML = "";
+  e.innerHTML = "";
+
   produtos.forEach(p=>{
-    v.innerHTML+=`<option>${p.nome}</option>`;
-    e.innerHTML+=`<option>${p.nome}</option>`;
+    v.innerHTML += `<option>${p.nome}</option>`;
+    e.innerHTML += `<option>${p.nome}</option>`;
   });
 }
 
 function vender(){
-  let nome=document.getElementById("produtoVenda").value;
-  let qtd=parseNumero(document.getElementById("quantidade").value);
-  let p=produtos.find(x=>x.nome===nome);
-  if(!p||qtd<=0||p.estoque<qtd) return alert("Erro");
-  p.estoque-=qtd;
-  let total=qtd*p.preco;
-  let lucro=qtd*(p.preco-p.precoCompra);
-  historico.push({data:new Date(),nome,quantidade:qtd,unidade:p.unidade,total,lucro});
+  let nome = document.getElementById("produtoVenda").value;
+  let qtd = parseNumero(document.getElementById("quantidade").value);
+  let p = produtos.find(x=>x.nome===nome);
+
+  if(!p || qtd<=0 || p.estoque<qtd){
+    alert("Erro na venda");
+    return;
+  }
+
+  p.estoque -= qtd;
+
+  let total = qtd * p.preco;
+  let lucro = qtd * (p.preco - p.precoCompra);
+
+  historico.push({
+    data: new Date().toISOString(),
+    nome,
+    quantidade: qtd,
+    unidade: p.unidade,
+    total,
+    lucro
+  });
+
   salvarDados();
 }
 
 function entradaEstoque(){
-  let nome=document.getElementById("produtoEntrada").value;
-  let qtd=parseNumero(document.getElementById("qtdEntrada").value);
-  let precoNovo=parseNumero(document.getElementById("precoEntrada").value);
-  let p=produtos.find(x=>x.nome===nome);
-  if(!p||qtd<=0||precoNovo<=0) return alert("Erro");
+  let nome = document.getElementById("produtoEntrada").value;
+  let qtd = parseNumero(document.getElementById("qtdEntrada").value);
+  let precoNovo = parseNumero(document.getElementById("precoEntrada").value);
 
-  let totalAntigo=p.precoCompra*p.estoque;
-  let totalNovo=precoNovo*qtd;
-  let novoEstoque=p.estoque+qtd;
+  let p = produtos.find(x=>x.nome===nome);
 
-  p.precoCompra=(totalAntigo+totalNovo)/novoEstoque;
-  p.estoque=novoEstoque;
+  if(!p || qtd<=0 || precoNovo<=0){
+    alert("Erro");
+    return;
+  }
+
+  let totalAntigo = p.precoCompra * p.estoque;
+  let totalNovo = precoNovo * qtd;
+  let novoEstoque = p.estoque + qtd;
+
+  p.precoCompra = (totalAntigo + totalNovo) / novoEstoque;
+  p.estoque = novoEstoque;
 
   salvarDados();
 }
 
 function atualizarHistorico(){
-  let l=document.getElementById("historico"); l.innerHTML="";
+  let l = document.getElementById("historico");
+  l.innerHTML = "";
+
   historico.forEach((h,i)=>{
-    l.innerHTML+=`
-<li>
-${new Date(h.data).toLocaleString()} | ${h.nome} | ${moeda(h.total)}
-<button onclick="removerVenda(${i})">❌</button>
-</li>`;
+    l.innerHTML += `
+      <li>
+        ${new Date(h.data).toLocaleString()} |
+        ${h.nome} |
+        ${h.quantidade} ${h.unidade} |
+        Total: ${moeda(h.total)} |
+        Lucro: ${moeda(h.lucro)}
+        <button onclick="removerVenda(${i})">❌</button>
+      </li>
+    `;
   });
 }
 
 function removerVenda(i){
-  let v=historico[i];
-  let p=produtos.find(x=>x.nome===v.nome);
-  if(p) p.estoque+=v.quantidade;
+  let v = historico[i];
+  let p = produtos.find(x=>x.nome===v.nome);
+  if(p) p.estoque += v.quantidade;
   historico.splice(i,1);
   salvarDados();
 }
 
 function limparHistorico(){
-  historico=[];
+  historico = [];
   salvarDados();
 }
 
 function resetarSistema(){
   if(confirm("Apagar tudo?")){
-    produtos=[]; historico=[];
+    produtos = [];
+    historico = [];
     salvarDados();
   }
 }
@@ -236,21 +277,22 @@ function removerProduto(i){
 }
 
 function calcularRelatorios(){
-  let hoje=new Date();
+  let hoje = new Date();
   let d=0,s=0,m=0,l=0;
 
   historico.forEach(v=>{
-    let data=new Date(v.data);
-    l+=v.lucro;
-    if(data.toDateString()===hoje.toDateString()) d+=v.total;
-    if((hoje-data)/(1000*60*60*24)<=7) s+=v.total;
-    if(data.getMonth()===hoje.getMonth()) m+=v.total;
+    let data = new Date(v.data);
+    l += v.lucro;
+
+    if(data.toDateString() === hoje.toDateString()) d += v.total;
+    if((hoje-data)/(1000*60*60*24) <= 7) s += v.total;
+    if(data.getMonth() === hoje.getMonth()) m += v.total;
   });
 
-  document.getElementById("totalDia").innerText="Hoje: "+moeda(d);
-  document.getElementById("totalSemana").innerText="Semana: "+moeda(s);
-  document.getElementById("totalMes").innerText="Mês: "+moeda(m);
-  document.getElementById("lucroTotal").innerText="Lucro: "+moeda(l);
+  document.getElementById("totalDia").innerText = "Hoje: " + moeda(d);
+  document.getElementById("totalSemana").innerText = "Semana: " + moeda(s);
+  document.getElementById("totalMes").innerText = "Mês: " + moeda(m);
+  document.getElementById("lucroTotal").innerText = "Lucro: " + moeda(l);
 }
 
 carregarDados();
