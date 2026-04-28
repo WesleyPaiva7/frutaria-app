@@ -91,21 +91,21 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-let produtos = [];
-let historico = [];
+// 🔥 CORREÇÃO PRINCIPAL (PERSISTÊNCIA)
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
-// LOGIN (REDIRECT)
+// LOGIN
 function login(){
   const provider = new firebase.auth.GoogleAuthProvider();
   auth.signInWithRedirect(provider);
 }
 
-// CORREÇÃO: só trata erro aqui
+// RESULTADO (APENAS ERRO)
 auth.getRedirectResult().catch(error => {
   console.log(error);
 });
 
-// ESTADO DO USUÁRIO (PRINCIPAL)
+// ESTADO DO USUÁRIO
 auth.onAuthStateChanged(user=>{
   if(user){
     document.getElementById("usuario").innerText = "Logado: " + user.email;
