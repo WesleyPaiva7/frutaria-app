@@ -1,18 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Frutaria</title>
+  <title>Login Frutaria</title>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
 <style>
-body{font-family:Arial;background:#f5f5f5;padding:10px;}
-.card{background:#fff;padding:10px;margin:10px 0;border-radius:10px;}
-button{width:100%;padding:12px;margin:5px 0;border:none;border-radius:8px;}
+body{font-family:Arial;background:#f5f5f5;padding:20px;text-align:center;}
+button{width:100%;padding:15px;margin:10px 0;border:none;border-radius:8px;font-size:16px;}
 .btn-azul{background:#007bff;color:#fff;}
 .btn-vermelho{background:#dc3545;color:#fff;}
+.card{background:#fff;padding:20px;border-radius:10px;}
 </style>
 </head>
 <body>
@@ -20,14 +19,7 @@ button{width:100%;padding:12px;margin:5px 0;border:none;border-radius:8px;}
 <div class="card">
   <button class="btn-azul" onclick="login()">Entrar com Google</button>
   <button class="btn-vermelho" onclick="logout()">Sair</button>
-  <p id="usuario"></p>
-</div>
-
-<div id="sistema" style="display:none">
-  <div class="card">
-    <h2>Sistema liberado</h2>
-    <p>Agora só entra quem fizer login 👊</p>
-  </div>
+  <p id="usuario">Não logado</p>
 </div>
 
 <script>
@@ -35,32 +27,39 @@ const firebaseConfig = {
   apiKey: "AIzaSyCw8xX29KgU3cqa_TNskv3ZHK0pjcyjdsQ",
   authDomain: "frutaria-app.firebaseapp.com",
   projectId: "frutaria-app",
-  storageBucket: "frutaria-app.firebasestorage.app",
-  messagingSenderId: "67866127101",
-  appId: "1:67866127101:web:68bf8d793ea799fd892c94"
 };
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 
+// LOGIN (REDIRECIONAMENTO)
 function login(){
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider);
+  auth.signInWithRedirect(provider);
 }
 
-function logout(){
-  auth.signOut();
-}
+// RESULTADO DO LOGIN
+auth.getRedirectResult().then(result => {
+  if(result.user){
+    document.getElementById("usuario").innerText = "Logado: " + result.user.email;
+  }
+}).catch(error => {
+  console.log(error);
+});
 
+// ESTADO DO USUÁRIO
 auth.onAuthStateChanged(user=>{
   if(user){
     document.getElementById("usuario").innerText = "Logado: " + user.email;
-    document.getElementById("sistema").style.display = "block";
   }else{
     document.getElementById("usuario").innerText = "Não logado";
-    document.getElementById("sistema").style.display = "none";
   }
 });
+
+// LOGOUT
+function logout(){
+  auth.signOut();
+}
 </script>
 
 </body>
