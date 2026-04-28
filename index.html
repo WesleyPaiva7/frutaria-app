@@ -1,96 +1,33 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Frutaria - Sistema</title>
+  <title>Frutaria</title>
 
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#28a745">
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
 <style>
-body {
-  font-family: Arial;
-  background: #f5f5f5;
-  padding: 10px;
-}
-h2 {
-  background: #222;
-  color: white;
-  padding: 10px;
-  border-radius: 8px;
-}
-input, select, button {
-  width: 100%;
-  padding: 12px;
-  margin: 5px 0;
-  border-radius: 8px;
-}
-button { border: none; font-weight: bold; }
-.btn-verde { background: #28a745; color: white; }
-.btn-azul { background: #007bff; color: white; }
-.btn-vermelho { background: #dc3545; color: white; }
-.card {
-  background: white;
-  padding: 10px;
-  margin: 10px 0;
-  border-radius: 10px;
-}
+body{font-family:Arial;background:#f5f5f5;padding:10px;}
+.card{background:#fff;padding:10px;margin:10px 0;border-radius:10px;}
+button{width:100%;padding:12px;margin:5px 0;border:none;border-radius:8px;}
+.btn-azul{background:#007bff;color:#fff;}
+.btn-vermelho{background:#dc3545;color:#fff;}
 </style>
-
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-
 </head>
 <body>
 
 <div class="card">
-<h2>Cadastro de Produtos</h2>
-<input id="nome" placeholder="Produto">
-<input id="precoCompra" placeholder="Preço de compra">
-<input id="preco" placeholder="Preço de venda">
-<input id="estoque" placeholder="Estoque inicial">
-<select id="unidade">
-  <option value="kg">kg</option>
-  <option value="un">un</option>
-</select>
-<button class="btn-azul" onclick="addProduto()">Adicionar</button>
+  <button class="btn-azul" onclick="login()">Entrar com Google</button>
+  <button class="btn-vermelho" onclick="logout()">Sair</button>
+  <p id="usuario"></p>
 </div>
 
-<div class="card">
-<h2>Produtos</h2>
-<ul id="lista"></ul>
-</div>
-
-<div class="card">
-<h2>Venda</h2>
-<select id="produtoVenda"></select>
-<input id="quantidade" placeholder="Quantidade">
-<button class="btn-verde" onclick="vender()">Vender</button>
-</div>
-
-<div class="card">
-<h2>Entrada de Estoque</h2>
-<select id="produtoEntrada"></select>
-<input id="qtdEntrada" placeholder="Quantidade">
-<input id="precoEntrada" placeholder="Preço de Compra">
-<button class="btn-azul" onclick="entradaEstoque()">Adicionar Estoque</button>
-</div>
-
-<div class="card">
-<h2>Registro de Vendas</h2>
-<ul id="historico"></ul>
-<button class="btn-vermelho" onclick="limparHistorico()">Limpar Histórico</button>
-</div>
-
-<div class="card">
-<button class="btn-vermelho" onclick="resetarSistema()">⚠️ Zerar Sistema</button>
-</div>
-
-<div class="card">
-<h2>Relatórios</h2>
-<p id="totalDia"></p>
-<p id="totalSemana"></p>
-<p id="totalMes"></p>
-<p id="lucroTotal"></p>
+<div id="sistema" style="display:none">
+  <div class="card">
+    <h2>Sistema liberado</h2>
+    <p>Agora só entra quem fizer login 👊</p>
+  </div>
 </div>
 
 <script>
@@ -104,204 +41,26 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const auth = firebase.auth();
 
-let produtos = [];
-let historico = [];
-
-function parseNumero(v){
-  return parseFloat((v || "0").toString().replace(",", ".")) || 0;
+function login(){
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider);
 }
 
-function moeda(v){
-  return Number(v || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  });
+function logout(){
+  auth.signOut();
 }
 
-function salvarDados(){
-  db.collection("sistema").doc("dados").set({
-    produtos,
-    historico
-  });
-}
-
-function carregarDados(){
-  db.collection("sistema").doc("dados").onSnapshot(doc=>{
-    if(doc.exists){
-      let d = doc.data();
-      produtos = d.produtos || [];
-      historico = d.historico || [];
-      atualizarLista();
-      atualizarSelects();
-      atualizarHistorico();
-      calcularRelatorios();
-    }
-  });
-}
-
-function addProduto(){
-  let nome = document.getElementById("nome").value.trim().toLowerCase();
-  let precoCompra = parseNumero(document.getElementById("precoCompra").value);
-  let preco = parseNumero(document.getElementById("preco").value);
-  let estoque = parseNumero(document.getElementById("estoque").value);
-  let unidade = document.getElementById("unidade").value;
-
-  if(!nome || preco <= 0){
-    alert("Preencha corretamente!");
-    return;
+auth.onAuthStateChanged(user=>{
+  if(user){
+    document.getElementById("usuario").innerText = "Logado: " + user.email;
+    document.getElementById("sistema").style.display = "block";
+  }else{
+    document.getElementById("usuario").innerText = "Não logado";
+    document.getElementById("sistema").style.display = "none";
   }
-
-  produtos.push({nome, precoCompra, preco, estoque, unidade});
-  salvarDados();
-}
-
-function atualizarLista(){
-  let l = document.getElementById("lista");
-  l.innerHTML = "";
-
-  produtos.forEach((p,i)=>{
-    l.innerHTML += `
-      <li>
-        ${p.nome} | Venda: ${moeda(p.preco)} | Custo: ${moeda(p.precoCompra)} | Estoque: ${p.estoque} ${p.unidade}
-        <button onclick="removerProduto(${i})">❌</button>
-      </li>
-    `;
-  });
-}
-
-function atualizarSelects(){
-  let v = document.getElementById("produtoVenda");
-  let e = document.getElementById("produtoEntrada");
-  v.innerHTML = "";
-  e.innerHTML = "";
-
-  produtos.forEach(p=>{
-    v.innerHTML += `<option>${p.nome}</option>`;
-    e.innerHTML += `<option>${p.nome}</option>`;
-  });
-}
-
-function vender(){
-  let nome = document.getElementById("produtoVenda").value;
-  let qtd = parseNumero(document.getElementById("quantidade").value);
-  let p = produtos.find(x=>x.nome===nome);
-
-  if(!p || qtd<=0 || p.estoque<qtd){
-    alert("Erro na venda");
-    return;
-  }
-
-  p.estoque -= qtd;
-
-  let total = qtd * p.preco;
-  let lucro = qtd * (p.preco - p.precoCompra);
-
-  historico.push({
-    data: new Date().toISOString(),
-    nome,
-    quantidade: qtd,
-    unidade: p.unidade,
-    total,
-    lucro
-  });
-
-  salvarDados();
-}
-
-function entradaEstoque(){
-  let nome = document.getElementById("produtoEntrada").value;
-  let qtd = parseNumero(document.getElementById("qtdEntrada").value);
-  let precoNovo = parseNumero(document.getElementById("precoEntrada").value);
-
-  let p = produtos.find(x=>x.nome===nome);
-
-  if(!p || qtd<=0 || precoNovo<=0){
-    alert("Erro");
-    return;
-  }
-
-  let totalAntigo = p.precoCompra * p.estoque;
-  let totalNovo = precoNovo * qtd;
-  let novoEstoque = p.estoque + qtd;
-
-  p.precoCompra = (totalAntigo + totalNovo) / novoEstoque;
-  p.estoque = novoEstoque;
-
-  salvarDados();
-}
-
-function atualizarHistorico(){
-  let l = document.getElementById("historico");
-  l.innerHTML = "";
-
-  historico.forEach((h,i)=>{
-    l.innerHTML += `
-      <li>
-        ${new Date(h.data).toLocaleString()} |
-        ${h.nome} |
-        ${h.quantidade} ${h.unidade} |
-        Total: ${moeda(h.total)} |
-        Lucro: ${moeda(h.lucro)}
-        <button onclick="removerVenda(${i})">❌</button>
-      </li>
-    `;
-  });
-}
-
-function removerVenda(i){
-  let v = historico[i];
-  let p = produtos.find(x=>x.nome===v.nome);
-  if(p) p.estoque += v.quantidade;
-  historico.splice(i,1);
-  salvarDados();
-}
-
-function limparHistorico(){
-  historico = [];
-  salvarDados();
-}
-
-function resetarSistema(){
-  if(confirm("Apagar tudo?")){
-    produtos = [];
-    historico = [];
-    salvarDados();
-  }
-}
-
-function removerProduto(i){
-  produtos.splice(i,1);
-  salvarDados();
-}
-
-function calcularRelatorios(){
-  let hoje = new Date();
-  let d=0,s=0,m=0,l=0;
-
-  historico.forEach(v=>{
-    let data = new Date(v.data);
-    l += v.lucro;
-
-    if(data.toDateString() === hoje.toDateString()) d += v.total;
-    if((hoje-data)/(1000*60*60*24) <= 7) s += v.total;
-    if(data.getMonth() === hoje.getMonth()) m += v.total;
-  });
-
-  document.getElementById("totalDia").innerText = "Hoje: " + moeda(d);
-  document.getElementById("totalSemana").innerText = "Semana: " + moeda(s);
-  document.getElementById("totalMes").innerText = "Mês: " + moeda(m);
-  document.getElementById("lucroTotal").innerText = "Lucro: " + moeda(l);
-}
-
-carregarDados();
-</script>
-
-<script>
-if("serviceWorker" in navigator){
-  navigator.serviceWorker.register("sw.js");
-}
+});
 </script>
 
 </body>
