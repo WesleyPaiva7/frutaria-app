@@ -94,20 +94,18 @@ const auth = firebase.auth();
 let produtos = [];
 let historico = [];
 
-// LOGIN REDIRECT (FUNCIONA NO CELULAR)
+// LOGIN (REDIRECT)
 function login(){
   const provider = new firebase.auth.GoogleAuthProvider();
   auth.signInWithRedirect(provider);
 }
 
-// RESULTADO DO LOGIN
-auth.getRedirectResult().then(result=>{
-  if(result.user){
-    console.log("Logado:", result.user.email);
-  }
+// CORREÇÃO: só trata erro aqui
+auth.getRedirectResult().catch(error => {
+  console.log(error);
 });
 
-// ESTADO DO USUÁRIO
+// ESTADO DO USUÁRIO (PRINCIPAL)
 auth.onAuthStateChanged(user=>{
   if(user){
     document.getElementById("usuario").innerText = "Logado: " + user.email;
@@ -229,7 +227,7 @@ function atualizarSelects(){
 function atualizarHistorico(){
   let h=document.getElementById("historico");
   h.innerHTML="";
-  historico.forEach((x,i)=>{
+  historico.forEach(x=>{
     h.innerHTML+=`
 <li>${new Date(x.data).toLocaleString()} | ${x.nome} | ${x.quantidade} ${x.unidade} | Total: ${moeda(x.total)} | Lucro: ${moeda(x.lucro)}</li>`;
   });
