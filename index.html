@@ -54,7 +54,9 @@ h2{background:#222;color:#fff;padding:10px;border-radius:8px;}
 
 <div class="card">
 <h2>Venda</h2>
-<select id="produtoVenda"></select>
+<select id="produtoVenda">
+  <option value="">Selecione um produto</option>
+</select>
 <input id="quantidade" placeholder="Quantidade">
 <button class="btn-verde" onclick="vender()">Vender</button>
 </div>
@@ -98,8 +100,8 @@ let historico = [];
 
 // LOGIN
 function login(){
-  let email = document.getElementById("email").value.trim();
-  let senha = document.getElementById("senha").value.trim();
+  let email = emailInput().value.trim();
+  let senha = senhaInput().value.trim();
   if(!email || !senha) return alert("Preencha email e senha");
 
   auth.signInWithEmailAndPassword(email, senha)
@@ -108,14 +110,18 @@ function login(){
 
 // CRIAR CONTA
 function criarConta(){
-  let email = document.getElementById("email").value.trim();
-  let senha = document.getElementById("senha").value.trim();
+  let email = emailInput().value.trim();
+  let senha = senhaInput().value.trim();
   if(!email || !senha) return alert("Preencha email e senha");
 
   auth.createUserWithEmailAndPassword(email, senha)
     .then(()=>alert("Conta criada!"))
     .catch(e=>alert(e.message));
 }
+
+// HELPERS INPUT
+function emailInput(){return document.getElementById("email");}
+function senhaInput(){return document.getElementById("senha");}
 
 // LOGOUT
 function logout(){
@@ -172,25 +178,25 @@ function addProduto(){
   salvarDados();
 }
 
-// VENDA (CORRIGIDA)
+// VENDA (100% CORRIGIDA)
 function vender(){
-  let nome = document.getElementById("produtoVenda").value;
-  let qtd = parseFloat(document.getElementById("quantidade").value) || 0;
+  let index = document.getElementById("produtoVenda").value;
+  let qtd = n(document.getElementById("quantidade").value);
 
-  if(!nome){
+  if(index === ""){
     alert("Selecione um produto");
     return;
   }
 
-  if(qtd <= 0){
-    alert("Digite uma quantidade válida");
+  let p = produtos[index];
+
+  if(!p){
+    alert("Produto inválido");
     return;
   }
 
-  let p = produtos.find(x => x.nome === nome);
-
-  if(!p){
-    alert("Produto não encontrado");
+  if(qtd <= 0){
+    alert("Quantidade inválida");
     return;
   }
 
@@ -205,12 +211,12 @@ function vender(){
   let lucro = qtd * (p.precoVenda - p.precoCompra);
 
   historico.push({
-    data: new Date().toISOString(),
-    nome: p.nome,
-    quantidade: qtd,
-    unidade: p.unidade,
-    total: total,
-    lucro: lucro
+    data:new Date().toISOString(),
+    nome:p.nome,
+    quantidade:qtd,
+    unidade:p.unidade,
+    total,
+    lucro
   });
 
   salvarDados();
@@ -218,10 +224,11 @@ function vender(){
 
 // ENTRADA
 function entradaEstoque(){
-  let nome = document.getElementById("produtoEntrada").value;
+  let index = document.getElementById("produtoEntrada").value;
   let qtd = n(document.getElementById("qtdEntrada").value);
   let precoNovo = n(document.getElementById("precoEntrada").value);
-  let p = produtos.find(x=>x.nome===nome);
+
+  let p = produtos[index];
 
   if(!p || qtd<=0 || precoNovo<=0) return;
 
@@ -241,12 +248,14 @@ function atualizarTudo(){
   let v=document.getElementById("produtoVenda");
   let e=document.getElementById("produtoEntrada");
 
-  l.innerHTML=""; v.innerHTML=""; e.innerHTML="";
+  l.innerHTML="";
+  v.innerHTML='<option value="">Selecione um produto</option>';
+  e.innerHTML="";
 
-  produtos.forEach(p=>{
+  produtos.forEach((p,i)=>{
     l.innerHTML+=`<li>${p.nome} | Estoque: ${p.estoque} | Venda: ${moeda(p.precoVenda)}</li>`;
-    v.innerHTML+=`<option>${p.nome}</option>`;
-    e.innerHTML+=`<option>${p.nome}</option>`;
+    v.innerHTML+=`<option value="${i}">${p.nome}</option>`;
+    e.innerHTML+=`<option value="${i}">${p.nome}</option>`;
   });
 
   atualizarHistorico();
