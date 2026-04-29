@@ -2,9 +2,7 @@
 <html>
 <head>
   <title>Frutaria Sistema</title>
-
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#28a745">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -13,7 +11,7 @@
 <style>
 body{font-family:Arial;background:#f5f5f5;padding:10px;}
 .card{background:#fff;padding:10px;margin:10px 0;border-radius:10px;}
-input,select,button{width:100%;padding:12px;margin:5px 0;border-radius:8px;}
+input,button{width:100%;padding:12px;margin:5px 0;border-radius:8px;}
 button{border:none;font-weight:bold;}
 .btn-verde{background:#28a745;color:#fff;}
 .btn-azul{background:#007bff;color:#fff;}
@@ -25,7 +23,11 @@ h2{background:#222;color:#fff;padding:10px;border-radius:8px;}
 <body>
 
 <div class="card">
-  <button class="btn-azul" onclick="login()">Entrar com Google</button>
+  <h2>Login</h2>
+  <input id="email" placeholder="Email">
+  <input id="senha" type="password" placeholder="Senha">
+  <button class="btn-azul" onclick="login()">Entrar</button>
+  <button class="btn-verde" onclick="criarConta()">Criar Conta</button>
   <button class="btn-vermelho" onclick="logout()">Sair</button>
   <p id="usuario">Não logado</p>
 </div>
@@ -35,13 +37,8 @@ h2{background:#222;color:#fff;padding:10px;border-radius:8px;}
 <div class="card">
 <h2>Cadastro de Produtos</h2>
 <input id="nome" placeholder="Produto">
-<input id="precoCompra" placeholder="Preço de compra">
-<input id="preco" placeholder="Preço de venda">
-<input id="estoque" placeholder="Estoque inicial">
-<select id="unidade">
-<option value="kg">kg</option>
-<option value="un">un</option>
-</select>
+<input id="preco" placeholder="Preço">
+<input id="estoque" placeholder="Estoque">
 <button class="btn-azul" onclick="addProduto()">Adicionar</button>
 </div>
 
@@ -58,24 +55,8 @@ h2{background:#222;color:#fff;padding:10px;border-radius:8px;}
 </div>
 
 <div class="card">
-<h2>Entrada de Estoque</h2>
-<select id="produtoEntrada"></select>
-<input id="qtdEntrada" placeholder="Quantidade">
-<input id="precoEntrada" placeholder="Preço de Compra">
-<button class="btn-azul" onclick="entradaEstoque()">Adicionar Estoque</button>
-</div>
-
-<div class="card">
 <h2>Histórico</h2>
 <ul id="historico"></ul>
-</div>
-
-<div class="card">
-<h2>Relatórios</h2>
-<p id="totalDia"></p>
-<p id="totalSemana"></p>
-<p id="totalMes"></p>
-<p id="lucroTotal"></p>
 </div>
 
 </div>
@@ -91,164 +72,104 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-// 🔥 CORREÇÃO PRINCIPAL (PERSISTÊNCIA)
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-
 // LOGIN
 function login(){
-  const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithRedirect(provider);
+  let email=document.getElementById("email").value;
+  let senha=document.getElementById("senha").value;
+
+  auth.signInWithEmailAndPassword(email, senha)
+    .catch(e=>alert(e.message));
 }
 
-// RESULTADO (APENAS ERRO)
-auth.getRedirectResult().catch(error => {
-  console.log(error);
-});
+// CRIAR CONTA
+function criarConta(){
+  let email=document.getElementById("email").value;
+  let senha=document.getElementById("senha").value;
 
-// ESTADO DO USUÁRIO
-auth.onAuthStateChanged(user=>{
-  if(user){
-    document.getElementById("usuario").innerText = "Logado: " + user.email;
-    document.getElementById("sistema").style.display = "block";
-    carregarDados();
-  }else{
-    document.getElementById("usuario").innerText = "Não logado";
-    document.getElementById("sistema").style.display = "none";
-  }
-});
+  auth.createUserWithEmailAndPassword(email, senha)
+    .then(()=>alert("Conta criada!"))
+    .catch(e=>alert(e.message));
+}
 
 // LOGOUT
 function logout(){
   auth.signOut();
 }
 
-// FUNÇÕES
-function parseNumero(v){
-  return parseFloat((v||"0").toString().replace(",", "."))||0;
+// ESTADO
+auth.onAuthStateChanged(user=>{
+  if(user){
+    document.getElementById("usuario").innerText="Logado: "+user.email;
+    document.getElementById("sistema").style.display="block";
+    carregar();
+  }else{
+    document.getElementById("usuario").innerText="Não logado";
+    document.getElementById("sistema").style.display="none";
+  }
+});
+
+// DADOS
+let produtos=[];
+let historico=[];
+
+function salvar(){
+  db.collection("dados").doc(auth.currentUser.uid)
+    .set({produtos,historico});
 }
 
-function moeda(v){
-  return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-}
-
-function salvarDados(){
-  db.collection("sistema").doc("dados").set({produtos,historico});
-}
-
-function carregarDados(){
-  db.collection("sistema").doc("dados").onSnapshot(doc=>{
-    if(doc.exists){
-      let d = doc.data();
-      produtos = d.produtos || [];
-      historico = d.historico || [];
-      atualizarTudo();
-    }
-  });
+function carregar(){
+  db.collection("dados").doc(auth.currentUser.uid)
+    .onSnapshot(doc=>{
+      if(doc.exists){
+        produtos=doc.data().produtos||[];
+        historico=doc.data().historico||[];
+        atualizar();
+      }
+    });
 }
 
 function addProduto(){
-  let nome=document.getElementById("nome").value.trim().toLowerCase();
-  let precoCompra=parseNumero(document.getElementById("precoCompra").value);
-  let preco=parseNumero(document.getElementById("preco").value);
-  let estoque=parseNumero(document.getElementById("estoque").value);
-  let unidade=document.getElementById("unidade").value;
+  let nome=document.getElementById("nome").value;
+  let preco=parseFloat(document.getElementById("preco").value)||0;
+  let estoque=parseFloat(document.getElementById("estoque").value)||0;
 
-  if(!nome||preco<=0) return alert("Preencha corretamente");
-
-  produtos.push({nome,precoCompra,preco,estoque,unidade});
-  salvarDados();
+  produtos.push({nome,preco,estoque});
+  salvar();
 }
 
 function vender(){
   let nome=document.getElementById("produtoVenda").value;
-  let qtd=parseNumero(document.getElementById("quantidade").value);
-  let p=produtos.find(x=>x.nome===nome);
+  let qtd=parseFloat(document.getElementById("quantidade").value)||0;
 
-  if(!p||qtd<=0||p.estoque<qtd) return alert("Erro");
+  let p=produtos.find(x=>x.nome===nome);
+  if(!p||p.estoque<qtd) return;
 
   p.estoque-=qtd;
 
-  let total=qtd*p.preco;
-  let lucro=qtd*(p.preco-p.precoCompra);
-
   historico.push({
-    data:new Date().toISOString(),
-    nome,quantidade:qtd,unidade:p.unidade,total,lucro
+    nome,qtd,data:new Date().toLocaleString()
   });
 
-  salvarDados();
+  salvar();
 }
 
-function entradaEstoque(){
-  let nome=document.getElementById("produtoEntrada").value;
-  let qtd=parseNumero(document.getElementById("qtdEntrada").value);
-  let precoNovo=parseNumero(document.getElementById("precoEntrada").value);
-  let p=produtos.find(x=>x.nome===nome);
-
-  if(!p||qtd<=0||precoNovo<=0) return alert("Erro");
-
-  let totalAntigo=p.precoCompra*p.estoque;
-  let totalNovo=precoNovo*qtd;
-  let novoEstoque=p.estoque+qtd;
-
-  p.precoCompra=(totalAntigo+totalNovo)/novoEstoque;
-  p.estoque=novoEstoque;
-
-  salvarDados();
-}
-
-function atualizarTudo(){
-  atualizarLista();
-  atualizarSelects();
-  atualizarHistorico();
-  calcularRelatorios();
-}
-
-function atualizarLista(){
+function atualizar(){
   let l=document.getElementById("lista");
-  l.innerHTML="";
-  produtos.forEach((p,i)=>{
-    l.innerHTML+=`
-<li>${p.nome} | Venda: ${moeda(p.preco)} | Estoque: ${p.estoque}
-<button onclick="removerProduto(${i})">❌</button></li>`;
-  });
-}
-
-function atualizarSelects(){
   let v=document.getElementById("produtoVenda");
-  let e=document.getElementById("produtoEntrada");
-  v.innerHTML=""; e.innerHTML="";
-  produtos.forEach(p=>{
-    v.innerHTML+=`<option>${p.nome}</option>`;
-    e.innerHTML+=`<option>${p.nome}</option>`;
-  });
-}
 
-function atualizarHistorico(){
+  l.innerHTML="";
+  v.innerHTML="";
+
+  produtos.forEach(p=>{
+    l.innerHTML+=`<li>${p.nome} - ${p.estoque}</li>`;
+    v.innerHTML+=`<option>${p.nome}</option>`;
+  });
+
   let h=document.getElementById("historico");
   h.innerHTML="";
   historico.forEach(x=>{
-    h.innerHTML+=`
-<li>${new Date(x.data).toLocaleString()} | ${x.nome} | ${x.quantidade} ${x.unidade} | Total: ${moeda(x.total)} | Lucro: ${moeda(x.lucro)}</li>`;
+    h.innerHTML+=`<li>${x.data} - ${x.nome} (${x.qtd})</li>`;
   });
-}
-
-function calcularRelatorios(){
-  let hoje=new Date();
-  let d=0,s=0,m=0,l=0;
-
-  historico.forEach(v=>{
-    let data=new Date(v.data);
-    l+=v.lucro;
-    if(data.toDateString()===hoje.toDateString()) d+=v.total;
-    if((hoje-data)/(1000*60*60*24)<=7) s+=v.total;
-    if(data.getMonth()===hoje.getMonth()) m+=v.total;
-  });
-
-  document.getElementById("totalDia").innerText="Hoje: "+moeda(d);
-  document.getElementById("totalSemana").innerText="Semana: "+moeda(s);
-  document.getElementById("totalMes").innerText="Mês: "+moeda(m);
-  document.getElementById("lucroTotal").innerText="Lucro: "+moeda(l);
 }
 </script>
 
