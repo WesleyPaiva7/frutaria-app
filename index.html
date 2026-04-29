@@ -153,33 +153,37 @@ function carregarDados(){
 
 // UTIL
 function n(v){return parseFloat(v)||0;}
-function moeda(v){return v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});}
+function moeda(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});}
 
-// FUNÇÕES
+// PRODUTO (CORRIGIDO)
 function addProduto(){
-  let nome=document.getElementById("nome").value;
-  let precoCompra=n(precoCompra.value);
-  let precoVenda=n(precoVenda.value);
-  let estoque=n(estoque.value);
-  let unidade=document.getElementById("unidade").value;
+  let nome = document.getElementById("nome").value;
+  let precoCompra = n(document.getElementById("precoCompra").value);
+  let precoVenda = n(document.getElementById("precoVenda").value);
+  let estoque = n(document.getElementById("estoque").value);
+  let unidade = document.getElementById("unidade").value;
 
-  if(!nome||precoVenda<=0) return alert("Erro");
+  if(!nome || precoVenda <= 0){
+    alert("Preencha corretamente");
+    return;
+  }
 
   produtos.push({nome,precoCompra,precoVenda,estoque,unidade});
   salvarDados();
 }
 
+// VENDA
 function vender(){
-  let nome=produtoVenda.value;
-  let qtd=n(quantidade.value);
-  let p=produtos.find(x=>x.nome===nome);
+  let nome = document.getElementById("produtoVenda").value;
+  let qtd = n(document.getElementById("quantidade").value);
+  let p = produtos.find(x=>x.nome===nome);
 
-  if(!p||qtd<=0||p.estoque<qtd) return alert("Erro");
+  if(!p || qtd<=0 || p.estoque<qtd) return alert("Erro");
 
-  p.estoque-=qtd;
+  p.estoque -= qtd;
 
-  let total=qtd*p.precoVenda;
-  let lucro=qtd*(p.precoVenda-p.precoCompra);
+  let total = qtd*p.precoVenda;
+  let lucro = qtd*(p.precoVenda-p.precoCompra);
 
   historico.push({
     data:new Date().toISOString(),
@@ -189,13 +193,14 @@ function vender(){
   salvarDados();
 }
 
+// ENTRADA
 function entradaEstoque(){
-  let nome=produtoEntrada.value;
-  let qtd=n(qtdEntrada.value);
-  let precoNovo=n(precoEntrada.value);
-  let p=produtos.find(x=>x.nome===nome);
+  let nome = document.getElementById("produtoEntrada").value;
+  let qtd = n(document.getElementById("qtdEntrada").value);
+  let precoNovo = n(document.getElementById("precoEntrada").value);
+  let p = produtos.find(x=>x.nome===nome);
 
-  if(!p||qtd<=0||precoNovo<=0) return;
+  if(!p || qtd<=0 || precoNovo<=0) return;
 
   let totalAntigo=p.precoCompra*p.estoque;
   let totalNovo=precoNovo*qtd;
@@ -207,29 +212,34 @@ function entradaEstoque(){
   salvarDados();
 }
 
+// ATUALIZAÇÃO
 function atualizarTudo(){
-  let l=lista; let v=produtoVenda; let e=produtoEntrada;
+  let l=document.getElementById("lista");
+  let v=document.getElementById("produtoVenda");
+  let e=document.getElementById("produtoEntrada");
+
   l.innerHTML=""; v.innerHTML=""; e.innerHTML="";
 
-  produtos.forEach((p,i)=>{
+  produtos.forEach(p=>{
     l.innerHTML+=`<li>${p.nome} | Estoque: ${p.estoque} | Venda: ${moeda(p.precoVenda)}</li>`;
     v.innerHTML+=`<option>${p.nome}</option>`;
     e.innerHTML+=`<option>${p.nome}</option>`;
   });
 
-  historicoHTML();
+  atualizarHistorico();
   relatorios();
 }
 
-function historicoHTML(){
-  historicoHTML = document.getElementById("historico");
-  historicoHTML.innerHTML="";
+// HISTÓRICO
+function atualizarHistorico(){
+  let h=document.getElementById("historico");
+  h.innerHTML="";
   historico.forEach(x=>{
-    historicoHTML.innerHTML+=`
-<li>${new Date(x.data).toLocaleString()} | ${x.nome} | ${x.quantidade} ${x.unidade} | Total: ${moeda(x.total)} | Lucro: ${moeda(x.lucro)}</li>`;
+    h.innerHTML+=`<li>${new Date(x.data).toLocaleString()} | ${x.nome} | ${x.quantidade} ${x.unidade} | Total: ${moeda(x.total)} | Lucro: ${moeda(x.lucro)}</li>`;
   });
 }
 
+// RELATÓRIOS
 function relatorios(){
   let hoje=new Date();
   let d=0,s=0,m=0,l=0;
@@ -242,10 +252,10 @@ function relatorios(){
     if(data.getMonth()===hoje.getMonth()) m+=v.total;
   });
 
-  totalDia.innerText="Hoje: "+moeda(d);
-  totalSemana.innerText="Semana: "+moeda(s);
-  totalMes.innerText="Mês: "+moeda(m);
-  lucroTotal.innerText="Lucro: "+moeda(l);
+  document.getElementById("totalDia").innerText="Hoje: "+moeda(d);
+  document.getElementById("totalSemana").innerText="Semana: "+moeda(s);
+  document.getElementById("totalMes").innerText="Mês: "+moeda(m);
+  document.getElementById("lucroTotal").innerText="Lucro: "+moeda(l);
 }
 </script>
 
