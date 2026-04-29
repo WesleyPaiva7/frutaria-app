@@ -74,8 +74,13 @@ const auth = firebase.auth();
 
 // LOGIN
 function login(){
-  let email=document.getElementById("email").value;
-  let senha=document.getElementById("senha").value;
+  let email = document.getElementById("email").value.trim();
+  let senha = document.getElementById("senha").value.trim();
+
+  if(!email || !senha){
+    alert("Preencha email e senha");
+    return;
+  }
 
   auth.signInWithEmailAndPassword(email, senha)
     .catch(e=>alert(e.message));
@@ -83,8 +88,13 @@ function login(){
 
 // CRIAR CONTA
 function criarConta(){
-  let email=document.getElementById("email").value;
-  let senha=document.getElementById("senha").value;
+  let email = document.getElementById("email").value.trim();
+  let senha = document.getElementById("senha").value.trim();
+
+  if(!email || !senha){
+    alert("Preencha email e senha");
+    return;
+  }
 
   auth.createUserWithEmailAndPassword(email, senha)
     .then(()=>alert("Conta criada!"))
@@ -133,6 +143,8 @@ function addProduto(){
   let preco=parseFloat(document.getElementById("preco").value)||0;
   let estoque=parseFloat(document.getElementById("estoque").value)||0;
 
+  if(!nome) return alert("Digite o nome");
+
   produtos.push({nome,preco,estoque});
   salvar();
 }
@@ -142,7 +154,7 @@ function vender(){
   let qtd=parseFloat(document.getElementById("quantidade").value)||0;
 
   let p=produtos.find(x=>x.nome===nome);
-  if(!p||p.estoque<qtd) return;
+  if(!p||p.estoque<qtd) return alert("Erro na venda");
 
   p.estoque-=qtd;
 
