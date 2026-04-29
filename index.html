@@ -100,8 +100,8 @@ let historico = [];
 
 // LOGIN
 function login(){
-  let email = emailInput().value.trim();
-  let senha = senhaInput().value.trim();
+  let email = document.getElementById("email").value.trim();
+  let senha = document.getElementById("senha").value.trim();
   if(!email || !senha) return alert("Preencha email e senha");
 
   auth.signInWithEmailAndPassword(email, senha)
@@ -110,8 +110,8 @@ function login(){
 
 // CRIAR CONTA
 function criarConta(){
-  let email = emailInput().value.trim();
-  let senha = senhaInput().value.trim();
+  let email = document.getElementById("email").value.trim();
+  let senha = document.getElementById("senha").value.trim();
   if(!email || !senha) return alert("Preencha email e senha");
 
   auth.createUserWithEmailAndPassword(email, senha)
@@ -119,20 +119,20 @@ function criarConta(){
     .catch(e=>alert(e.message));
 }
 
-// HELPERS INPUT
-function emailInput(){return document.getElementById("email");}
-function senhaInput(){return document.getElementById("senha");}
-
 // LOGOUT
 function logout(){
   auth.signOut();
 }
 
-// ESTADO
+// ESTADO (CORRIGIDO)
 auth.onAuthStateChanged(user=>{
   if(user){
     document.getElementById("usuario").innerText="Logado: "+user.email;
     document.getElementById("sistema").style.display="block";
+
+    produtos = [];
+    historico = [];
+
     carregarDados();
   }else{
     document.getElementById("usuario").innerText="Não logado";
@@ -178,20 +178,26 @@ function addProduto(){
   salvarDados();
 }
 
-// VENDA (100% CORRIGIDA)
+// VENDA FINAL (SEM ERRO)
 function vender(){
-  let index = document.getElementById("produtoVenda").value;
+  let select = document.getElementById("produtoVenda");
+  let index = parseInt(select.value);
   let qtd = n(document.getElementById("quantidade").value);
 
-  if(index === ""){
-    alert("Selecione um produto");
+  if(isNaN(index)){
+    alert("Selecione um produto válido");
+    return;
+  }
+
+  if(!produtos || produtos.length === 0){
+    alert("Nenhum produto carregado ainda");
     return;
   }
 
   let p = produtos[index];
 
   if(!p){
-    alert("Produto inválido");
+    alert("Produto não encontrado (sincronização)");
     return;
   }
 
