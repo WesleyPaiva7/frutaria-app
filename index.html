@@ -155,7 +155,7 @@ function carregarDados(){
 function n(v){return parseFloat(v)||0;}
 function moeda(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});}
 
-// PRODUTO (CORRIGIDO)
+// PRODUTO
 function addProduto(){
   let nome = document.getElementById("nome").value;
   let precoCompra = n(document.getElementById("precoCompra").value);
@@ -172,22 +172,45 @@ function addProduto(){
   salvarDados();
 }
 
-// VENDA
+// VENDA (CORRIGIDA)
 function vender(){
   let nome = document.getElementById("produtoVenda").value;
-  let qtd = n(document.getElementById("quantidade").value);
-  let p = produtos.find(x=>x.nome===nome);
+  let qtd = parseFloat(document.getElementById("quantidade").value) || 0;
 
-  if(!p || qtd<=0 || p.estoque<qtd) return alert("Erro");
+  if(!nome){
+    alert("Selecione um produto");
+    return;
+  }
+
+  if(qtd <= 0){
+    alert("Digite uma quantidade válida");
+    return;
+  }
+
+  let p = produtos.find(x => x.nome === nome);
+
+  if(!p){
+    alert("Produto não encontrado");
+    return;
+  }
+
+  if(p.estoque < qtd){
+    alert("Estoque insuficiente");
+    return;
+  }
 
   p.estoque -= qtd;
 
-  let total = qtd*p.precoVenda;
-  let lucro = qtd*(p.precoVenda-p.precoCompra);
+  let total = qtd * p.precoVenda;
+  let lucro = qtd * (p.precoVenda - p.precoCompra);
 
   historico.push({
-    data:new Date().toISOString(),
-    nome,quantidade:qtd,unidade:p.unidade,total,lucro
+    data: new Date().toISOString(),
+    nome: p.nome,
+    quantidade: qtd,
+    unidade: p.unidade,
+    total: total,
+    lucro: lucro
   });
 
   salvarDados();
