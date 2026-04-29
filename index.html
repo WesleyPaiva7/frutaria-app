@@ -161,16 +161,21 @@ function carregarDados(){
 function n(v){return parseFloat(v)||0;}
 function moeda(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});}
 
-// PRODUTO
+// PRODUTO (CORRIGIDO)
 function addProduto(){
-  let nome = document.getElementById("nome").value;
-  let precoCompra = n(document.getElementById("precoCompra").value);
-  let precoVenda = n(document.getElementById("precoVenda").value);
-  let estoque = n(document.getElementById("estoque").value);
+  let nome = document.getElementById("nome").value.trim();
+  let precoCompra = parseFloat(document.getElementById("precoCompra").value) || 0;
+  let precoVenda = parseFloat(document.getElementById("precoVenda").value) || 0;
+  let estoque = parseFloat(document.getElementById("estoque").value) || 0;
   let unidade = document.getElementById("unidade").value;
 
-  if(!nome || precoVenda <= 0){
-    alert("Preencha corretamente");
+  if(!nome){
+    alert("Digite o nome do produto");
+    return;
+  }
+
+  if(precoVenda <= 0){
+    alert("Preço de venda inválido");
     return;
   }
 
@@ -241,7 +246,7 @@ function entradaEstoque(){
   salvarDados();
 }
 
-// ATUALIZAÇÃO
+// ATUALIZAÇÃO (EXIBIÇÃO CORRIGIDA)
 function atualizarTudo(){
   let l=document.getElementById("lista");
   let v=document.getElementById("produtoVenda");
@@ -252,7 +257,13 @@ function atualizarTudo(){
   e.innerHTML="";
 
   produtos.forEach((p,i)=>{
-    l.innerHTML+=`<li>${p.nome} | Estoque: ${p.estoque} | Compra: ${moeda(p.precoCompra)} | Venda: ${moeda(p.precoVenda)}</li>`;
+    l.innerHTML+=`<li>
+    ${p.nome} | 
+    Estoque: ${p.estoque} | 
+    Compra: ${moeda(p.precoCompra || 0)} | 
+    Venda: ${moeda(p.precoVenda || 0)}
+    </li>`;
+
     v.innerHTML+=`<option value="${i}">${p.nome}</option>`;
     e.innerHTML+=`<option value="${i}">${p.nome}</option>`;
   });
