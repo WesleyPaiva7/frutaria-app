@@ -11,7 +11,7 @@
 <style>
 body{font-family:Arial;background:#f5f5f5;padding:10px;}
 .card{background:#fff;padding:10px;margin:10px 0;border-radius:10px;}
-input,button{width:100%;padding:12px;margin:5px 0;border-radius:8px;}
+input,select,button{width:100%;padding:12px;margin:5px 0;border-radius:8px;}
 button{border:none;font-weight:bold;}
 .btn-verde{background:#28a745;color:#fff;}
 .btn-azul{background:#007bff;color:#fff;}
@@ -37,8 +37,13 @@ h2{background:#222;color:#fff;padding:10px;border-radius:8px;}
 <div class="card">
 <h2>Cadastro de Produtos</h2>
 <input id="nome" placeholder="Produto">
-<input id="preco" placeholder="Preço">
+<input id="precoCompra" placeholder="Preço de compra">
+<input id="precoVenda" placeholder="Preço de venda">
 <input id="estoque" placeholder="Estoque">
+<select id="unidade">
+<option value="kg">kg</option>
+<option value="un">un</option>
+</select>
 <button class="btn-azul" onclick="addProduto()">Adicionar</button>
 </div>
 
@@ -55,8 +60,24 @@ h2{background:#222;color:#fff;padding:10px;border-radius:8px;}
 </div>
 
 <div class="card">
+<h2>Entrada de Estoque</h2>
+<select id="produtoEntrada"></select>
+<input id="qtdEntrada" placeholder="Quantidade">
+<input id="precoEntrada" placeholder="Preço de compra">
+<button class="btn-azul" onclick="entradaEstoque()">Adicionar</button>
+</div>
+
+<div class="card">
 <h2>Histórico</h2>
 <ul id="historico"></ul>
+</div>
+
+<div class="card">
+<h2>Relatórios</h2>
+<p id="totalDia"></p>
+<p id="totalSemana"></p>
+<p id="totalMes"></p>
+<p id="lucroTotal"></p>
 </div>
 
 </div>
@@ -72,15 +93,14 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
+let produtos = [];
+let historico = [];
+
 // LOGIN
 function login(){
   let email = document.getElementById("email").value.trim();
   let senha = document.getElementById("senha").value.trim();
-
-  if(!email || !senha){
-    alert("Preencha email e senha");
-    return;
-  }
+  if(!email || !senha) return alert("Preencha email e senha");
 
   auth.signInWithEmailAndPassword(email, senha)
     .catch(e=>alert(e.message));
@@ -90,11 +110,7 @@ function login(){
 function criarConta(){
   let email = document.getElementById("email").value.trim();
   let senha = document.getElementById("senha").value.trim();
-
-  if(!email || !senha){
-    alert("Preencha email e senha");
-    return;
-  }
+  if(!email || !senha) return alert("Preencha email e senha");
 
   auth.createUserWithEmailAndPassword(email, senha)
     .then(()=>alert("Conta criada!"))
@@ -111,77 +127,125 @@ auth.onAuthStateChanged(user=>{
   if(user){
     document.getElementById("usuario").innerText="Logado: "+user.email;
     document.getElementById("sistema").style.display="block";
-    carregar();
+    carregarDados();
   }else{
     document.getElementById("usuario").innerText="Não logado";
     document.getElementById("sistema").style.display="none";
   }
 });
 
-// DADOS
-let produtos=[];
-let historico=[];
-
-function salvar(){
+// BANCO
+function salvarDados(){
   db.collection("dados").doc(auth.currentUser.uid)
     .set({produtos,historico});
 }
 
-function carregar(){
+function carregarDados(){
   db.collection("dados").doc(auth.currentUser.uid)
     .onSnapshot(doc=>{
       if(doc.exists){
-        produtos=doc.data().produtos||[];
-        historico=doc.data().historico||[];
-        atualizar();
+        produtos = doc.data().produtos || [];
+        historico = doc.data().historico || [];
+        atualizarTudo();
       }
     });
 }
 
+// UTIL
+function n(v){return parseFloat(v)||0;}
+function moeda(v){return v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});}
+
+// FUNÇÕES
 function addProduto(){
   let nome=document.getElementById("nome").value;
-  let preco=parseFloat(document.getElementById("preco").value)||0;
-  let estoque=parseFloat(document.getElementById("estoque").value)||0;
+  let precoCompra=n(precoCompra.value);
+  let precoVenda=n(precoVenda.value);
+  let estoque=n(estoque.value);
+  let unidade=document.getElementById("unidade").value;
 
-  if(!nome) return alert("Digite o nome");
+  if(!nome||precoVenda<=0) return alert("Erro");
 
-  produtos.push({nome,preco,estoque});
-  salvar();
+  produtos.push({nome,precoCompra,precoVenda,estoque,unidade});
+  salvarDados();
 }
 
 function vender(){
-  let nome=document.getElementById("produtoVenda").value;
-  let qtd=parseFloat(document.getElementById("quantidade").value)||0;
-
+  let nome=produtoVenda.value;
+  let qtd=n(quantidade.value);
   let p=produtos.find(x=>x.nome===nome);
-  if(!p||p.estoque<qtd) return alert("Erro na venda");
+
+  if(!p||qtd<=0||p.estoque<qtd) return alert("Erro");
 
   p.estoque-=qtd;
 
+  let total=qtd*p.precoVenda;
+  let lucro=qtd*(p.precoVenda-p.precoCompra);
+
   historico.push({
-    nome,qtd,data:new Date().toLocaleString()
+    data:new Date().toISOString(),
+    nome,quantidade:qtd,unidade:p.unidade,total,lucro
   });
 
-  salvar();
+  salvarDados();
 }
 
-function atualizar(){
-  let l=document.getElementById("lista");
-  let v=document.getElementById("produtoVenda");
+function entradaEstoque(){
+  let nome=produtoEntrada.value;
+  let qtd=n(qtdEntrada.value);
+  let precoNovo=n(precoEntrada.value);
+  let p=produtos.find(x=>x.nome===nome);
 
-  l.innerHTML="";
-  v.innerHTML="";
+  if(!p||qtd<=0||precoNovo<=0) return;
 
-  produtos.forEach(p=>{
-    l.innerHTML+=`<li>${p.nome} - ${p.estoque}</li>`;
+  let totalAntigo=p.precoCompra*p.estoque;
+  let totalNovo=precoNovo*qtd;
+  let novoEstoque=p.estoque+qtd;
+
+  p.precoCompra=(totalAntigo+totalNovo)/novoEstoque;
+  p.estoque=novoEstoque;
+
+  salvarDados();
+}
+
+function atualizarTudo(){
+  let l=lista; let v=produtoVenda; let e=produtoEntrada;
+  l.innerHTML=""; v.innerHTML=""; e.innerHTML="";
+
+  produtos.forEach((p,i)=>{
+    l.innerHTML+=`<li>${p.nome} | Estoque: ${p.estoque} | Venda: ${moeda(p.precoVenda)}</li>`;
     v.innerHTML+=`<option>${p.nome}</option>`;
+    e.innerHTML+=`<option>${p.nome}</option>`;
   });
 
-  let h=document.getElementById("historico");
-  h.innerHTML="";
+  historicoHTML();
+  relatorios();
+}
+
+function historicoHTML(){
+  historicoHTML = document.getElementById("historico");
+  historicoHTML.innerHTML="";
   historico.forEach(x=>{
-    h.innerHTML+=`<li>${x.data} - ${x.nome} (${x.qtd})</li>`;
+    historicoHTML.innerHTML+=`
+<li>${new Date(x.data).toLocaleString()} | ${x.nome} | ${x.quantidade} ${x.unidade} | Total: ${moeda(x.total)} | Lucro: ${moeda(x.lucro)}</li>`;
   });
+}
+
+function relatorios(){
+  let hoje=new Date();
+  let d=0,s=0,m=0,l=0;
+
+  historico.forEach(v=>{
+    let data=new Date(v.data);
+    l+=v.lucro;
+    if(data.toDateString()===hoje.toDateString()) d+=v.total;
+    if((hoje-data)/(1000*60*60*24)<=7) s+=v.total;
+    if(data.getMonth()===hoje.getMonth()) m+=v.total;
+  });
+
+  totalDia.innerText="Hoje: "+moeda(d);
+  totalSemana.innerText="Semana: "+moeda(s);
+  totalMes.innerText="Mês: "+moeda(m);
+  lucroTotal.innerText="Lucro: "+moeda(l);
 }
 </script>
 
