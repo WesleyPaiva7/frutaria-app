@@ -86,9 +86,9 @@ h2{background:#222;color:#fff;padding:10px;border-radius:8px;}
 
 <script>
 const firebaseConfig = {
-  apiKey: "AIzaSyCw8xX29KgU3cqa_TNskv3ZHK0pjcyjdsQ",
-  authDomain: "frutaria-app.firebaseapp.com",
-  projectId: "frutaria-app"
+  apiKey: "SUA_KEY",
+  authDomain: "SEU_AUTH_DOMAIN",
+  projectId: "SEU_PROJECT_ID"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -97,6 +97,7 @@ const auth = firebase.auth();
 
 let produtos = [];
 let historico = [];
+let carregado = false;
 
 // LOGIN
 function login(){
@@ -132,6 +133,7 @@ auth.onAuthStateChanged(user=>{
 
     produtos = [];
     historico = [];
+    carregado = false;
 
     carregarDados();
   }else{
@@ -142,6 +144,7 @@ auth.onAuthStateChanged(user=>{
 
 // BANCO
 function salvarDados(){
+  if(!auth.currentUser) return;
   db.collection("dados").doc(auth.currentUser.uid)
     .set({produtos,historico});
 }
@@ -152,8 +155,9 @@ function carregarDados(){
       if(doc.exists){
         produtos = doc.data().produtos || [];
         historico = doc.data().historico || [];
-        atualizarTudo();
       }
+      carregado = true;
+      atualizarTudo();
     });
 }
 
@@ -161,21 +165,16 @@ function carregarDados(){
 function n(v){return parseFloat(v)||0;}
 function moeda(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});}
 
-// PRODUTO (CORRIGIDO)
+// PRODUTO
 function addProduto(){
   let nome = document.getElementById("nome").value.trim();
-  let precoCompra = parseFloat(document.getElementById("precoCompra").value) || 0;
-  let precoVenda = parseFloat(document.getElementById("precoVenda").value) || 0;
-  let estoque = parseFloat(document.getElementById("estoque").value) || 0;
+  let precoCompra = n(document.getElementById("precoCompra").value);
+  let precoVenda = n(document.getElementById("precoVenda").value);
+  let estoque = n(document.getElementById("estoque").value);
   let unidade = document.getElementById("unidade").value;
 
-  if(!nome){
-    alert("Digite o nome do produto");
-    return;
-  }
-
-  if(precoVenda <= 0){
-    alert("Preço de venda inválido");
+  if(!nome || precoVenda <= 0){
+    alert("Dados inválidos");
     return;
   }
 
@@ -183,8 +182,13 @@ function addProduto(){
   salvarDados();
 }
 
-// VENDA
+// VENDA (SUPER SEGURA)
 function vender(){
+  if(!carregado){
+    alert("Aguarde carregar os dados");
+    return;
+  }
+
   let index = parseInt(document.getElementById("produtoVenda").value);
   let qtd = n(document.getElementById("quantidade").value);
 
@@ -195,16 +199,25 @@ function vender(){
 
   let p = produtos[index];
 
-  if(!p || qtd<=0 || p.estoque<qtd){
-    alert("Erro na venda");
+  if(!p){
+    alert("Produto inválido");
+    return;
+  }
+
+  if(qtd <= 0){
+    alert("Quantidade inválida");
+    return;
+  }
+
+  if(p.estoque < qtd){
+    alert("Estoque insuficiente");
     return;
   }
 
   p.estoque -= qtd;
 
   let total = qtd * p.precoVenda;
-  let lucroUnitario = p.precoVenda - p.precoCompra;
-  let lucro = lucroUnitario * qtd;
+  let lucro = (p.precoVenda - p.precoCompra) * qtd;
 
   historico.push({
     data:new Date().toISOString(),
@@ -218,16 +231,11 @@ function vender(){
   salvarDados();
 }
 
-// ENTRADA (CUSTO MÉDIO)
+// ENTRADA
 function entradaEstoque(){
   let index = parseInt(document.getElementById("produtoEntrada").value);
   let qtd = n(document.getElementById("qtdEntrada").value);
   let precoNovo = n(document.getElementById("precoEntrada").value);
-
-  if(isNaN(index)){
-    alert("Selecione um produto");
-    return;
-  }
 
   let p = produtos[index];
 
@@ -246,7 +254,7 @@ function entradaEstoque(){
   salvarDados();
 }
 
-// ATUALIZAÇÃO (EXIBIÇÃO CORRIGIDA)
+// ATUALIZAÇÃO
 function atualizarTudo(){
   let l=document.getElementById("lista");
   let v=document.getElementById("produtoVenda");
@@ -257,13 +265,7 @@ function atualizarTudo(){
   e.innerHTML="";
 
   produtos.forEach((p,i)=>{
-    l.innerHTML+=`<li>
-    ${p.nome} | 
-    Estoque: ${p.estoque} | 
-    Compra: ${moeda(p.precoCompra || 0)} | 
-    Venda: ${moeda(p.precoVenda || 0)}
-    </li>`;
-
+    l.innerHTML+=`<li>${p.nome} | Estoque: ${p.estoque} | Compra: ${moeda(p.precoCompra)} | Venda: ${moeda(p.precoVenda)}</li>`;
     v.innerHTML+=`<option value="${i}">${p.nome}</option>`;
     e.innerHTML+=`<option value="${i}">${p.nome}</option>`;
   });
